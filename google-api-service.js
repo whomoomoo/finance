@@ -2,6 +2,7 @@ let fileSystem = require('fs');
 let readline = require('readline');
 let google = require('googleapis');
 let googleAuth = require('google-auth-library');
+let openurl = require('openurl');
 
 // If modifying these scopes, delete your previously saved credentials
 // at ~/.credentials/sheets.googleapis.com-nodejs-quickstart.json
@@ -65,7 +66,10 @@ class GoogleSheetsAPI {
             access_type: 'offline',
             scope: SCOPES
         });
-        console.log('Authorize this app by visiting this url: ', authUrl);
+        console.log('Authorize via the browser opened by the app \n',
+            '(visit this url: %s if it fails to open)', authUrl);
+
+        openurl.open(authUrl)
         var readlineInterface = readline.createInterface({
             input: process.stdin,
             output: process.stdout
@@ -104,5 +108,5 @@ class GoogleSheetsAPI {
 
 
 module.exports = {
-    GoogleSheetsAPI : GoogleSheetsAPI
+    API : GoogleSheetsAPI
 }
