@@ -44,13 +44,28 @@ class GoogleSheetsAPI {
           auth: this.oauth2Client,
           spreadsheetId: this.spreadsheetId,
           range: range,
-        }, function(err, response) {
-          if (err) {
-            console.log('The API returned an error: ' + err);
-            return;
+        }, (error, response) => {
+          if (error) {
+            console.error('The API returned an error: ', error);
+          } else {
+            onLoad(response.values)
           }
-          var rows = response.values;
-          onLoad(rows)
+        });
+    }
+
+    loadColumns(range, onLoad) {
+        var sheets = google.sheets('v4');
+        sheets.spreadsheets.values.get({
+          auth: this.oauth2Client,
+          spreadsheetId: this.spreadsheetId,
+          range: range,
+          majorDimension: 'COLUMNS',
+        }, (error, response) => {
+          if (error) {
+            console.error('The API returned an error: ', error);
+          } else {
+            onLoad(response.values)
+          }
         });
     }
 
@@ -74,11 +89,11 @@ class GoogleSheetsAPI {
             input: process.stdin,
             output: process.stdout
         });
-        readlineInterface.question('Enter the code from that page here: ', function(code) {
-            readlineInterface.close();
-                oauth2Client.getToken(code, function(err, token) {
+        readlineInterface.question('Enter the code from that page here: ', (code) => {
+                readlineInterface.close();
+                oauth2Client.getToken(code, (err, token) => {
                 if (err) {
-                    console.log('Error while trying to retrieve access token', err);
+                    console.error('Error while trying to retrieve access token', err);
                     return;
                 }
                 oauth2Client.credentials = token;
