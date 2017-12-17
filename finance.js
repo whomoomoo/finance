@@ -1,5 +1,6 @@
 
 let GoogleSheetsAPI = require("./google-api-service")
+let assert = require("assert")
 
 let spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
 let sheetsAPI = new GoogleSheetsAPI.API(spreadsheetId);
@@ -8,23 +9,54 @@ let transactionTypes = [];
 let accountNames = {};
 let refnums = [];
 
-sheetsAPI.connect("./client_secret.json", function(api){
-    api.loadColumns('Settings!A2:C', function(settingsData) {
-        console.log(settingsData)
+let commandMap = {
+    import (args) {
+        let file = args[0];
+    }
+};
 
-        transactionTypes = settingsData[0]
+function start(afterStart) {
+    let connects = 0;
 
-        // assert keys.lenght == values.lnegth?
-        settingsData[1].forEach((key, i) => accountNames[key.replace(/ /g, '')] = settingsData[2][i]);
+    function doAfterStart() {
+        connects++;
 
-        console.log("transactionTypes: ", transactionTypes);
-        console.log("accountNames: ", accountNames);        
-    });
-
-    api.load('Transactions!F2:F', function(settingsData) {
-        if (settingsData) {
-            refnums = settingsData[0]
+        if (connects === 2) {
+            console.log("successful connection to google sheets");
+            
+            afterStart()
         }
-        console.log("refnums: ", refnums);        
+    }
+
+    sheetsAPI.connect("./client_secret.json", (api) => {
+        api.loadColumns('Settings!A2:C', (settingsData) => {
+            transactionTypes = settingsData[0]
+
+            assert.strictEqual(settingsData[1].length, settingsData[2].length)
+            settingsData[1].forEach((key, i) => accountNames[key.replace(/ /g, '')] = settingsData[2][i]);
+
+            doAfterStart();
+        });
+
+        api.load('Transactions!F2:F', (settingsData) => {
+            if (settingsData) {
+                refnums = settingsData[0]
+            }
+            
+            doAfterStart();            
+        });
     });
+}
+
+start(() => {
+    let action = process.argv[2]
+
+    if (commandMap[action]) {
+        let args = process.argv.slice(3)
+
+        commandMap[action](args)
+    } else {
+        console.log("action %s unknown. List of known actions:", action, 
+            Object.getOwnPropertyNames(commandMap));
+    }
 });
