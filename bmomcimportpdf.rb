@@ -1,11 +1,41 @@
 require 'pdf/reader'
 require 'date'
 require 'csv'
+require_relative 'transaction'
 
 class BMOMasterCardPDFParser
     @baseDate = nil
     @balance = nil
     @prevBalance = nil
+
+    def read(fileName)
+        reader = PDF::Reader.new(fileName)
+        transactions = []
+        
+        reader.pages.each do |page|
+            transactions.concat( readPage(page.text) )
+        end
+
+        raise "missing balance" if @balance.nil?  
+        raise "missing base date" if @baseDate.nil?  
+        raise "missing prev balance" if @prevBalance.nil?  
+        
+        sum = 0
+        transactions.each do |transaction|
+            sum += transaction.amount
+        end
+
+        sum += (@balance * -1) + @prevBalance
+
+        raise "error parsing summing transation check failed: #{sum}" unless sum < 0.001   
+        
+        STDERR.puts "#{transactions.length} transactions"        
+        STDERR.puts "DATA OK!"
+
+        return transactions
+    end
+
+    private
 
     def toNumber(text)
         return text.strip.sub(",", "").to_f
@@ -43,8 +73,11 @@ class BMOMasterCardPDFParser
                         dataElement.strip!
                     end
 
-                    if /CR/.match(data[4]) then
-                        data[4] = toNumber(data[4].sub("CR", "")) * -1
+                    amount = data[4]
+                    if /CR/.match(amount) then
+                        amount = toNumber(amount.sub("CR", "")) * -1
+                    else
+                        amount = amount.to_f
                     end
 
                     # compress multiple whitespaces into one
@@ -59,42 +92,17 @@ class BMOMasterCardPDFParser
                             year -= 1
                         end
 
-                        data[0] = Date.new(year, date.month, date.day)
+                        date = Date.new(year, date.month, date.day)
 
-                        transactions.push(["5191830003653811", data[3], data[0], " ", data[4], data[2]])
+                        transactions.push(Transaction.new("BMO-MC", date, amount, data[2], " "))
+                            
+                        # ["BMO-MC", data[3], data[0], " ", data[4], data[2]])
                     rescue ArgumentError
                         STDERR.puts "#{line.strip} not valid data"
                     end
                 end
             end
         end
-
-        return transactions
-    end
-
-    def read(fileName)
-        reader = PDF::Reader.new(fileName)
-        transactions = []
-        
-        reader.pages.each do |page|
-            transactions.concat( readPage(page.text) )
-        end
-
-        raise "missing balance" if @balance.nil?  
-        raise "missing base date" if @baseDate.nil?  
-        raise "missing prev balance" if @prevBalance.nil?  
-        
-        sum = 0
-        transactions.each do |trn|
-            sum += trn[4].to_f
-        end
-
-        sum += (@balance * -1) + @prevBalance
-
-        raise "error parsing summing transation check failed: #{sum}" unless sum < 0.001   
-        
-        STDERR.puts "#{transactions.length} transactions"        
-        STDERR.puts "DATA OK!"
 
         return transactions
     end
@@ -105,6 +113,6 @@ ARGV.each do |file|
     parser = BMOMasterCardPDFParser.new()
     transactions = parser.read(file)
 
-    print transactions.map(&:to_csv).join
+    print transactions.map(&:inspect).join("\n") #.map(&:to_csv).join
 end
 STDERR.puts "coverted #{ARGV.length} files"    
