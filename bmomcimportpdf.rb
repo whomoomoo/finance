@@ -5,7 +5,6 @@ require 'fileutils'
 
 require_relative 'transaction'
 require_relative 'applogger'
-require_relative 'accounttypes'
 
 class BMOMasterCardPDFParser
     attr_reader :baseDate, :balance, :prevBalance, :prevDate
@@ -37,10 +36,6 @@ class BMOMasterCardPDFParser
         $logger.info "parsed #{@name}: #{transactions.length} transactions, DATA OK!"        
 
         return transactions
-    end
-
-    def accountType 
-        return AccountTypes::EXPENSE
     end
 
     def accountId

@@ -21,8 +21,8 @@ ARGV.each do |file|
     transactions = parser.read(file)
 
     transactions.each do |transaction|
-        if categorizer.guessTransactionTypeFromDescription(transaction.description, parser.accountType).nil?
-            unknownDesc.push(transaction.description + " " + transaction.amount.to_s) 
+        if categorizer.guessTransactionType(transaction).nil?
+            unknownDesc.push(transaction.description + " | " + transaction.amount.to_s+" | " + transaction.date.to_s) 
             total += transaction.amount
         end 
     end
