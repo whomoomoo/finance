@@ -5,7 +5,8 @@ require 'googleauth/stores/file_token_store'
 require 'fileutils'
 require 'launchy'
 
-spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
+spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc"
+SheetsV4 = Google::Apis::SheetsV4
 
 class SheetsAPI
     @spreadsheetId
@@ -14,7 +15,7 @@ class SheetsAPI
         @spreadsheetId = spreadsheetId
 
         # Initialize the API
-        @service = Google::Apis::SheetsV4::SheetsService.new
+        @service = SheetsV4::SheetsService.new
         @service.client_options.application_name = "Finance Importer"
         @service.authorization = authorize
     end
@@ -29,13 +30,19 @@ class SheetsAPI
         return response.values
     end
 
+    def saveColumn(column, values)
+        range = "#{column}2:#{column}#{values.length+1}"
+        rangeObject = SheetsV4::ValueRange.new(major_dimension:"COLUMNS", range: range, values: [ values ])
+        @service.get_spreadsheet_update(@spreadsheetId, range, rangeObject)
+    end
+
     private 
 
     OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
     CLIENT_SECRETS_PATH = 'client_secret.json'
     CREDENTIALS_PATH = File.join(Dir.home, '.credentials',
                              "sheets.googleapis.com-nodejs-finance-importer.yaml")
-    SCOPE = Google::Apis::SheetsV4::AUTH_SPREADSHEETS
+    SCOPE = SheetsV4::AUTH_SPREADSHEETS
 
     ##
     # Ensure valid credentials, either by restoring from the saved credentials

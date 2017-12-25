@@ -1,18 +1,19 @@
 require_relative 'sheets-api'
+require_relative 'applogger'
 
 class AppSettings
-    @transactionTypes
-    @accountsByID
+    attr_reader :transactionTypes, :accountsByID, :importedStatements
 
     def initialize(sheetsAPI)
-        puts "loading settings..."
+        $logger.info "loading settings..."
         @sheetsAPI = sheetsAPI
 
-        settingsData = sheetsAPI.loadColumns('Settings!A2:C')
+        settingsData = sheetsAPI.loadColumns('Settings!A2:D')
         
         raise "accounts settings corrupted" unless settingsData[1].length == settingsData[2].length
 
         @transactionTypes = settingsData[0]
+        @importedStatements = settingsData[3]
 
         @accountsByID = {}
         settingsData[1].each_index do |index|
@@ -20,6 +21,20 @@ class AppSettings
 
             @accountsByID[key.gsub(/\s+/, '')] = settingsData[2][index]
         end
-        puts "loaded settings"
+        $logger.info "loaded settings"
+    end
+
+    def hasStatement(documentParser)
+        statmentId = "#{documentParser.accont}.#{documentParser.baseDate}"
+        return @importedStatements.find_index(statmentId)
+    end
+
+    def addStatement(documentParser)
+        statmentId = "#{documentParser.accont}.#{documentParser.baseDate}"
+        @importedStatements.push() unless hasStatement(documentParser)
+    end
+
+    def updateImportedStatements
+        @sheetsAPI.saveColumn("D", @importedStatements)
     end
 end

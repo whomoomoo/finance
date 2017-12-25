@@ -1,14 +1,18 @@
 require 'pdf/reader'
 require 'date'
 require 'csv'
+require 'fileutils'
+
 require_relative 'transaction'
+require_relative 'applogger'
+require_relative 'accounttypes'
 
 class BMOMasterCardPDFParser
-    @baseDate = nil
-    @balance = nil
-    @prevBalance = nil
+    attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
     def read(fileName)
+        $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
+        @name = File.basename(fileName)
         reader = PDF::Reader.new(fileName)
         transactions = []
         
@@ -19,7 +23,8 @@ class BMOMasterCardPDFParser
         raise "missing balance" if @balance.nil?  
         raise "missing base date" if @baseDate.nil?  
         raise "missing prev balance" if @prevBalance.nil?  
-        
+        raise "missing prev date" if @prevDate.nil?  
+
         sum = 0
         transactions.each do |transaction|
             sum += transaction.amount
@@ -27,18 +32,49 @@ class BMOMasterCardPDFParser
 
         sum += (@balance * -1) + @prevBalance
 
-        raise "error parsing summing transation check failed: #{sum}" unless sum < 0.001   
-        
-        STDERR.puts "#{transactions.length} transactions"        
-        STDERR.puts "DATA OK!"
+        raise "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
+                
+        $logger.info "parsed #{@name}: #{transactions.length} transactions, DATA OK!"        
 
         return transactions
+    end
+
+    def accountType 
+        return AccountTypes::EXPENSE
+    end
+
+    def accountId
+        return "BMO-MC"
     end
 
     private
 
     def toNumber(text)
-        return text.strip.sub(",", "").to_f
+        multiplier = 1
+        if /CR/.match(text) then
+            multiplier = -1
+            text.sub!("CR", "")
+        end
+        return text.strip.sub(",", "").to_f * multiplier
+    end
+
+    def monthDayToDate(text)
+        # check for transactions on this bill that happened in the previous month wich might 
+        # have been in the previous year
+        date = nil
+        begin
+            date = Date.parse(text)
+        rescue ArgumentError 
+            return nil
+        end
+
+        year = @baseDate.year
+        if date.month != @baseDate.month && @baseDate.month <= 2 && date.month >= 11
+            year -= 1
+        elsif date.month != @baseDate.month && (date.month + 1) != @baseDate.month
+            raise "#{@name} unknown transaction date year: #{date} statement date: #{@baseDate}"
+        end
+        return  Date.new(year, date.month, date.day)
     end
 
     def readPage(pageText)
@@ -48,17 +84,19 @@ class BMOMasterCardPDFParser
         pageText.lines.each do |line|
             if @baseDate.nil? && /Statement Date\s+(.*)/.match(line) then
                 @baseDate = Date.parse(Regexp.last_match(1))
-                STDERR.puts "Using #{@baseDate} as base date"
+                $logger.debug "Using #{@baseDate} as base date"
             end
 
             if @balance.nil? && /New Balance.*[$](-?\d+,?\d+\.\d+)/.match(line) then
                 @balance = toNumber(Regexp.last_match(1))
-                STDERR.puts "Using #{@balance} as Balance"
+                $logger.debug "Using #{@balance} as Balance"
             end
 
-            if @prevBalance.nil? && /Previous Balance.*[$](-?\d+,?\d+\.\d+)/.match(line) then
-                @prevBalance = toNumber(Regexp.last_match(1))
-                STDERR.puts "Using #{@prevBalance} as Previous Balance"
+            if @prevBalance.nil? && /Previous Balance, (.*)  .*[$](-?\d+,?\d+\.\d+)/.match(line) then
+                @prevBalance = toNumber(Regexp.last_match(2))
+                $logger.debug "Using #{@prevBalance} as Previous Balance"
+                @prevDate = Date.parse(Regexp.last_match(1))
+                $logger.debug "Using #{@prevDate} as Previous Date"
             end
 
             if !inTransactionTable && /\w+\s+\w+\s+DESCRIPTION\s+REFERENCE NO/.match(line) then
@@ -67,52 +105,54 @@ class BMOMasterCardPDFParser
 
             if inTransactionTable then
                 if /^\s*(\w+\.?\s\d+)\s+(\w+\.?\s\d+)/.match(line) then
-                    data = line.unpack("A10A10A63A25A30")
+                    data = splitColumns(line, [10, 10, 64, 16])
 
                     data.each do |dataElement|
                         dataElement.strip!
                     end
 
-                    amount = data[4]
-                    if /CR/.match(amount) then
-                        amount = toNumber(amount.sub("CR", "")) * -1
-                    else
-                        amount = amount.to_f
-                    end
-
+                    amount = toNumber(data[4])
+                    
                     # compress multiple whitespaces into one
                     data[2].gsub!(/\s+/, " ")
 
-                    begin
-                        # check for transactions on this bill that happened in the previous month wich might 
-                        # have been in the previous year
-                        date = Date.parse(data[0])
-                        year = @baseDate.year
-                        if date.month == 11 || date.month == 12
-                            year -= 1
-                        end
+                    date = monthDayToDate(data[0])
 
-                        date = Date.new(year, date.month, date.day)
+                    next if date.nil?
 
-                        transactions.push(Transaction.new("BMO-MC", date, amount, data[2], " "))
-                            
-                        # ["BMO-MC", data[3], data[0], " ", data[4], data[2]])
-                    rescue ArgumentError
-                        STDERR.puts "#{line.strip} not valid data"
-                    end
+                    raise "amount should never be zero!\n#{data}" if amount.abs < 0.001
+
+                    transactions.push(Transaction.new(self.accountId, date, amount, data[2]))
                 end
             end
         end
 
         return transactions
     end
-end
 
-ARGV.each do |file|
-    STDERR.puts "converting #{file}"    
-    parser = BMOMasterCardPDFParser.new()
-    transactions = parser.read(file)
+    def splitColumns(line, columns)
+        sum = columns.reduce(0, :+)
 
-    print transactions.map(&:inspect).join("\n") #.map(&:to_csv).join
+        return nil if sum >= line.length
+
+        data = []
+        last = 0
+        columns.each do |column|
+            data.push(line[last, column])
+            last += column
+        end
+        data.push(line[last..-1])
+        return data
+    end
 end
-STDERR.puts "coverted #{ARGV.length} files"    
+ 
+# ARGV.each do |file|
+#     STDERR.puts "converting #{file}"    
+#     parser = BMOMasterCardPDFParser.new()
+#     transactions = parser.read(file)
+
+#     print transactions.map(&:inspect).join("\n") #.map(&:to_csv).join
+# end
+# STDERR.puts "coverted #{ARGV.length} files"    
+
+
