@@ -4,8 +4,29 @@ require_relative 'sheets-api'
 require_relative 'appsettings'
 require_relative 'categorizer'
 require_relative 'bmomcimportpdf'
+require_relative 'applogger'
 
 spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
+
+def importFiles(files, categorizer, api)
+    files.each do |file|
+        parser = BMOMasterCardPDFParser.new(settings)
+        transactions = parser.read(file)
+
+        if settings.hasStatement(parser) then
+            $logger.info "#{documentParser.Id} already imported"
+            next
+        end
+
+        categorizer.updateTransactionsType(transactions)
+        settings.addStatement(parser)
+
+        rows = transactions.map { |transaction| transaction.toSheetRow }
+
+        api.addRows( rows )
+        settings.updateImportedStatements
+    end
+end
 
 api = SheetsAPI.new(spreadsheetId)
 settings = AppSettings.new(api)
@@ -17,7 +38,7 @@ total = 0
 unknownDesc = []
 
 ARGV.each do |file|
-    parser = BMOMasterCardPDFParser.new()
+    parser = BMOMasterCardPDFParser.new(settings)
     transactions = parser.read(file)
 
     transactions.each do |transaction|

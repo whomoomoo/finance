@@ -36,6 +36,12 @@ class SheetsAPI
         @service.get_spreadsheet_update(@spreadsheetId, range, rangeObject)
     end
 
+    def addRows(values)
+        range = "A1"
+        rangeObject = SheetsV4::ValueRange.new(major_dimension:"ROWS", range: range, values: values)
+        @service.append_spreadsheet_value(@spreadsheetId, range, rangeObject)
+    end
+
     private 
 
     OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'

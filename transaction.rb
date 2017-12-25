@@ -10,4 +10,8 @@ class Transaction
         @type = type
         @description = description
     end
+
+    def toSheetRow 
+        return [@account, @date, @amount, @type, @description]
+    end
 end

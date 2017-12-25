@@ -5,9 +5,16 @@ require 'fileutils'
 
 require_relative 'transaction'
 require_relative 'applogger'
+require_relative 'appsettings'
 
 class BMOMasterCardPDFParser
     attr_reader :baseDate, :balance, :prevBalance, :prevDate
+
+    def initialize(appsettings)
+        @appsettings = appsettings
+
+        raise "unknown accout for parser #{accountId}" if @appsettings.accountNumByID[accountId].nil?
+    end
 
     def read(fileName)
         $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
@@ -40,6 +47,10 @@ class BMOMasterCardPDFParser
 
     def accountId
         return "BMO-MC"
+    end
+
+    def Id
+        return accountId + @baseDate.to_s
     end
 
     private
@@ -92,6 +103,22 @@ class BMOMasterCardPDFParser
                 $logger.debug "Using #{@prevBalance} as Previous Balance"
                 @prevDate = Date.parse(Regexp.last_match(1))
                 $logger.debug "Using #{@prevDate} as Previous Date"
+            end
+
+            if @prevBalance.nil? && /Previous Balance, (.*)  .*[$](-?\d+,?\d+\.\d+)/.match(line) then
+                @prevBalance = toNumber(Regexp.last_match(2))
+                $logger.debug "Using #{@prevBalance} as Previous Balance"
+                @prevDate = Date.parse(Regexp.last_match(1))
+                $logger.debug "Using #{@prevDate} as Previous Date"
+            end
+
+            if @cardNumberValidated.nil? && /Card Number\s+(\d+ \d+ \d+ \d+)/.match(line) then
+                number = Regexp.last_match(1).gsub(/\s+/, '')
+                expectedNumber = @appsettings.accountNumByID[accountId]
+
+                raise "invalid account number, expect #{expectedNumber}, got #{number}" if number != expectedNumber
+
+                @cardNumberValidated = true
             end
 
             if !inTransactionTable && /\w+\s+\w+\s+DESCRIPTION\s+REFERENCE NO/.match(line) then

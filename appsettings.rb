@@ -3,7 +3,7 @@ require_relative 'applogger'
 require_relative 'accounttypes'
 
 class AppSettings
-    attr_reader :transactionTypes, :accountsByID, :importedStatements, :accountTypeByName
+    attr_reader :transactionTypes, :accountsByNum, :importedStatements, :accountTypeByName, :accountNumByID
 
     def initialize(sheetsAPI)
         $logger.info "loading settings..."
@@ -19,6 +19,7 @@ class AppSettings
 
         @accountsByID = {}
         @accountTypeByName = {}
+        @accountNumByID = {}
         settingsData[1].each_index do |index|
             key = settingsData[1][index]
             type = AccountTypes.const_get(settingsData[3][index].upcase)
@@ -27,18 +28,17 @@ class AppSettings
 
             @accountsByID[key.gsub(/\s+/, '')] = settingsData[2][index]
             @accountTypeByName[settingsData[2][index].strip] = type
+            @accountNumByID[settingsData[2][index]] = key.gsub(/\s+/, '')
         end
         $logger.info "loaded settings"
     end
 
     def hasStatement(documentParser)
-        statmentId = "#{documentParser.accont}.#{documentParser.baseDate}"
-        return @importedStatements.find_index(statmentId)
+        return @importedStatements.find_index(documentParser.Id)
     end
 
     def addStatement(documentParser)
-        statmentId = "#{documentParser.accont}.#{documentParser.baseDate}"
-        @importedStatements.push() unless hasStatement(documentParser)
+        @importedStatements.push() unless hasStatement(documentParser.Id)
     end
 
     def updateImportedStatements
