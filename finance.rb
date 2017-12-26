@@ -39,7 +39,7 @@ total = 0
 unknownDesc = []
 
 ARGV.each do |file|
-    parser = SimpliiCheckingCSVParser.new(settings)
+    parser = BMOMasterCardPDFParser.new(settings)
     transactions = parser.read(file)
 
     transactions.each do |transaction|

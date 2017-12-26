@@ -4,11 +4,11 @@ require 'fileutils'
 
 require_relative 'parser'
 
-class BMOMasterCardPDFParser < Parser
+class TDVisaPDFParser < Parser
     # attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
     def read(fileName)
-        $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
+        $logger.debug "TDVisaPDFParser parsing #{fileName}"
         @name = File.basename(fileName)
         reader = PDF::Reader.new(fileName)
         transactions = []
@@ -26,12 +26,10 @@ class BMOMasterCardPDFParser < Parser
         transactions.each do |transaction|
             sum += transaction.amount
         end
-        puts sum
-        puts @balance - @prevBalance
 
         sum += (@balance * -1) + @prevBalance
 
-        puts "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
+        raise "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
                 
         $logger.info "parsed #{@name}: #{transactions.length} transactions, DATA OK!"        
 
@@ -39,7 +37,7 @@ class BMOMasterCardPDFParser < Parser
     end
 
     def accountId
-        return "BMO-MC"
+        return "TD-VISA"
     end
 
     def Id
@@ -131,15 +129,11 @@ class BMOMasterCardPDFParser < Parser
 
                     date = monthDayToDate(data[0])
 
-                    #puts line if date.nil?
                     next if date.nil?
 
                     raise "amount should never be zero!\n#{data}" if amount.abs < 0.001
 
                     transactions.push(Transaction.new(self.accountId, date, amount, data[2]))
-                else
-                    
-                    #puts line
                 end
             end
         end

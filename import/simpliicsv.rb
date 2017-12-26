@@ -2,11 +2,9 @@ require 'date'
 require 'csv'
 require 'fileutils'
 
-require_relative '../transaction'
-require_relative '../applogger'
-require_relative '../appsettings'
+require_relative 'parser'
 
-class SimpliiCSVParser
+class SimpliiCSVParser < Parser
     def initialize(appsettings)
         @appsettings = appsettings
 
@@ -14,17 +12,14 @@ class SimpliiCSVParser
     end
 
     def read(fileName)
-        $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
+        $logger.debug "SimpliiCSVParser parsing #{fileName}"
         @name = File.basename(fileName)
         rows = CSV.read(fileName)
 
         raise "unknown CSV file" if rows[0][0] != "SIMPLII"
 
-        accountNumber = rows[0][1].to_s
-        expectedNumber = @appsettings.accountNumByID[accountId]
-
-        raise "invalid account number, expect #{expectedNumber}, got #{accountNumber}" if accountNumber != expectedNumber
-
+        validateAccountNumber = rows[0][1].to_s
+       
         transactions = []
     
         debits = 0
@@ -41,8 +36,6 @@ class SimpliiCSVParser
 
             transactions.push( Transaction.new(accountId, Date.strptime(row[0], "%m/%d/%Y"), amount, row[1]) )
         end
-
-        puts transactions.inspect
 
         $logger.info "parsed #{@name}: #{transactions.length} transactions, debits: #{debits} cridits: #{cridits}, DATA OK!"        
 
