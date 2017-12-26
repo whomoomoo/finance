@@ -11,24 +11,25 @@ class Categorizer
     @@map = { 
         "Bike" => ["ZIGGY S CYCLE", "KING STREET CYCLES"],
         "Books, Games, etc" => ["J&J CARDS", "WORDS WORTH BOOKS", "CHAPTERS", "LONG & MCQUADE"], 
+        "Cash" => ["ABM WITHDRAWAL", "ABM INTERAC WITHDRAWAL"],
         "Car" =>  ["ESSO", "PETROCAN", "PETROMART", "PARKING", "ULTRAMAR", "HEFFNER", "HUSKY", "PARKLINK",
-                    "ONROUTE #01165 CAMBRIDGE"],
+                    "ONROUTE #01165 CAMBRIDGE", "PIONEER"],
         "Clothes" => ["Old Navy", "NATIONAL SPORTS", "V&S DEPT.STORE"],
         "Costco" => ["COSTCO"],
         "Exersize" => ["GRAND RIVER ROCKS INC", "THE CORE CLIMBING GYM", "CAMBRIDGE KIPS",
                         "KITCHENER WATERLOO GYM", "CITY OF WATERLOO REC", "JUNCTION CLIMBING",
-                        "A. R. KAUFMAN FAMILY"],
+                        "A. R. KAUFMAN FAMILY", "REVOLUTION GYMN"],
         "Entertainment" => ["CINEMAS", "BEER STORE", "LCBO", "ADVENTURE ROOMS CANADA", 
                         "K-W LITTLE THEATRE", "LASER QUEST", "SNYDERS FAMILY FARM"],
         "Electronics" => ["CANADA COMPUTERS"],
-        "Fees" => ["ABM INTERAC CHARGE", "E-TRANSFER SEND S/C"],
+        "Fees" => ["ABM INTERAC CHARGE", "E-TRANSFER SEND S/C", "EFT CREDIT e-Transfer Fee Promo CR"],
         "House" => ["CDN TIRE STORE", "CHASLES PLUMBING", "THE HOME DEPOT", "RONA", "LOWES", 
-                    "SCHWEITZER'S PLUMBING", "SWANSON'S HOME HARDWAR", "SCANICA FURNITURE", 
+                    "SCHWEITZER'S PLUMBING", "SCHWEITZERS PLUMBING", "SWANSON'S HOME HARDWAR", "SCANICA FURNITURE", 
                     "SWANSON'S HOME HARDWAR", "SHERIDAN NURSERIES", "ROYAL CITY NURSERY",
                     "HEER'S PAINT", "GLENBRIAR HM HWR", "BED BATH & BEYOND", "CONESTOGO MECHANICAL",
                 "BLINDS TO GO", "HUDSON's BAY HOME", "APPLIANCE SCRATCH", "TA APPLIANCE"],
         "House-Bills" => ["UNION GAS", "WATERLOO NORTH HYDRO", "KITCHENER WATER AND GAS", 
-                        "KITCHENER-WILMOT HYDRO", "SENTEXCOMMUNICA"],
+                        "KITCHENER-WILMOT HYDRO", "SENTEXCOMMUNICA", "PROPERTY TAXES City of Kitchener"],
         "Health" => ["TALL PINES DENTAL","EFT CREDIT EQUITABLE LIFE OF CANADA", 
                         "POS MERCHANDISE GOOD PRACTICE", "THE BOARDWALK PHARMACY", "EYES ON KING",
                         "MEDICAL PHARMACIES"],
@@ -50,9 +51,13 @@ class Categorizer
                         "MEL'S DINER", "MCCABE'S", "MCMULLAN'S", "RESTAURANT", "JANE BOND", "CHIPOTLE",
                         "SEVEN SHORES URBAN MAR", "SETTLEMENT CO", "SHAWARMA", "HUETHER HOTEL",
                         "THE PUB ON KING", "THIRSTY'S BAR", "FRESHWEST GRILL", "B.GOOD TORONTO"],
-        "Transfer" => ["PAYMENT RECEIVED - THANK YOU"],
+        "RRSP" => ["INVESTMENT CANADIAN SHAREOWNERS", "INTERNET BILL PAYMENT NEXTSTEP GREAT-WEST LIFE"
+        ],
+        "Transfer" => ["PAYMENT RECEIVED - THANK YOU", "INTERNET BILL PAYMENT MASTERCARD", 
+                        "INTERNET BILL PAYMENT VISA", "TRANSFER IN", "TRANSFER OUT" ],
         "Transport" => ["GRAND RIVER TRANSIT", "CITY CABS", "WATERLOO TAXI"],
         "Vacation" => ["SILENT LAKE", "VIA RAIL"],
+        "Work" => ["PAYROLL DEPOSIT", "EFT CREDIT CANADA"],
     }
 
     @@mapWithType = {
@@ -60,7 +65,7 @@ class Categorizer
             "Fees"=> ["INTEREST", "BMO FUNDS TRANSFER"]
         },
         AccountTypes::REVENUE => {
-            "Fees"=> ["Investment"]
+            "Investment"=> ["INTEREST"]
         }
     }
 
@@ -97,7 +102,11 @@ class Categorizer
         unless type.nil? then
             transation.type = type
         else
-            transaction.type = "Misc"
+            if transation.amount > 0
+                transaction.type = "Misc"
+            else
+                transaction.type = "Misc-In"
+            end
         end
     end
 
@@ -125,6 +134,14 @@ class Categorizer
         unless type.nil? then
             @count += 1
             return type
+        end
+
+        if transaction.description.include? "INSURANCE MELOCHE MONNEX/SECURITE NAT'L CHEQUE"
+            if transaction.amount > 90
+                return "Car"
+            else
+                return "House-Bills"
+            end
         end
 
         return nil

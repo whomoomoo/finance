@@ -1,14 +1,13 @@
 require 'pdf/reader'
 require 'date'
-require 'csv'
 require 'fileutils'
 
-require_relative 'transaction'
-require_relative 'applogger'
-require_relative 'appsettings'
+require_relative '../transaction'
+require_relative '../applogger'
+require_relative '../appsettings'
 
 class BMOMasterCardPDFParser
-    attr_reader :baseDate, :balance, :prevBalance, :prevDate
+    # attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
     def initialize(appsettings)
         @appsettings = appsettings
@@ -167,14 +166,3 @@ class BMOMasterCardPDFParser
         return data
     end
 end
- 
-# ARGV.each do |file|
-#     STDERR.puts "converting #{file}"    
-#     parser = BMOMasterCardPDFParser.new()
-#     transactions = parser.read(file)
-
-#     print transactions.map(&:inspect).join("\n") #.map(&:to_csv).join
-# end
-# STDERR.puts "coverted #{ARGV.length} files"    
-
-

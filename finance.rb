@@ -3,7 +3,8 @@ require 'bundler/setup'
 require_relative 'sheets-api'
 require_relative 'appsettings'
 require_relative 'categorizer'
-require_relative 'bmomcimportpdf'
+require_relative 'import/bmomc'
+require_relative 'import/simpliicsv'
 require_relative 'applogger'
 
 spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
@@ -38,7 +39,7 @@ total = 0
 unknownDesc = []
 
 ARGV.each do |file|
-    parser = BMOMasterCardPDFParser.new(settings)
+    parser = SimpliiCheckingCSVParser.new(settings)
     transactions = parser.read(file)
 
     transactions.each do |transaction|
