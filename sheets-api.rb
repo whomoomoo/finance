@@ -18,30 +18,38 @@ class SheetsAPI
         @service = SheetsV4::SheetsService.new
         @service.client_options.application_name = "Finance Importer"
         @service.authorization = authorize
+
+        @updates = []
     end
 
     def loadRows(range)
-        response = @service.get_spreadsheet_values(@spreadsheetId, range)
+        response = @service.get_spreadsheet_values(@spreadsheetId, range, 
+            value_render_option: "UNFORMATTED_VALUE")
         return response.values
     end
 
     def loadColumns(range)
-        response = @service.get_spreadsheet_values(@spreadsheetId, range, major_dimension:"COLUMNS")
+        response = @service.get_spreadsheet_values(@spreadsheetId, range, major_dimension:"COLUMNS", 
+            value_render_option: "UNFORMATTED_VALUE")
         return response.values
     end
 
-    def saveColumn(column, values)
-        range = "#{column}2:#{column}#{values.length+1}"
-        rangeObject = SheetsV4::ValueRange.new(major_dimension:"COLUMNS", range: range, values: [ values ])
-        @service.get_spreadsheet_update(@spreadsheetId, range, rangeObject)
-    end
-
-    def addRows(values)
-        range = "A1"
+    def addRows(range, values)
         rangeObject = SheetsV4::ValueRange.new(major_dimension:"ROWS", range: range, values: values)
-        @service.append_spreadsheet_value(@spreadsheetId, range, rangeObject)
+        @service.append_spreadsheet_value(@spreadsheetId, range, rangeObject,
+             insert_data_option: "INSERT_ROWS", value_input_option: "RAW")
     end
 
+    # preform all the pending batch updates
+    def batchUpdate()
+        @service.batch_update_values(@spreadsheetId, range, 
+            SheetsV4::BatchUpdateValuesRequest.new(data: @updates, include_values_in_response: false))
+        @updates = []
+    end
+
+    def clearValues(range)
+        @service.clear_values(@spreadsheetId, range, SheetsV4::ClearValuesRequest.new())
+    end
     private 
 
     OOB_URI = 'urn:ietf:wg:oauth:2.0:oob'
