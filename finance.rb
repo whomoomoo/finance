@@ -23,8 +23,8 @@ def importFiles(files, categorizer, api)
 
         rows = transactions.map { |transaction| transaction.toSheetRow }
 
-        api.addRows( rows )
-        settings.updateImportedStatements
+        $logger.info "uploading #{rows.length} rows for #{documentParser.Id} ..."
+        api.addRows( "Transactions", rows )
     end
 end
 

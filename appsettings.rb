@@ -21,7 +21,7 @@ class AppSettings
         @accountTypeByName = {}
         @accountNumByID = {}
         settingsData[1].each_index do |index|
-            key = settingsData[1][index]
+            key = settingsData[1][index].to_s
             type = AccountTypes.const_get(settingsData[3][index].upcase)
 
             raise "unknown account type #{settingsData[3][index].upcase}" if type.nil?
@@ -38,10 +38,9 @@ class AppSettings
     end
 
     def addStatement(documentParser)
-        @importedStatements.push() unless hasStatement(documentParser.Id)
-    end
-
-    def updateImportedStatements
-        @sheetsAPI.saveColumn("D", @importedStatements)
+        unless hasStatement(documentParser.Id)
+            @importedStatements.push(documentParser.Id) 
+            @sheetsAPI.addRows("Settings!E", [ [ documentParser.Id ] ])
+        end
     end
 end

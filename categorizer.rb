@@ -73,6 +73,21 @@ class Categorizer
                 raise "unknown transactionType #{transactionType}"
             end
         end
+
+        # check no string is a sub string of another
+        @@map.keys.each do |transactionType|
+            @@map[transactionType].each do |string|
+                @@map.keys.each do |transactionType2|
+                    next if transactionType == transactionType2
+
+                    @@map[transactionType2].each do |string2|
+                        raise "two different transactionType have overlapping huristic :\n"+
+                        "#{transactionType}, #{string}\n" +
+                        "#{transactionType2}, #{string2}\n" if string.include?(string2)
+                    end
+                end
+            end
+        end
     end
 
     def updateTransactionType(transation)
@@ -98,21 +113,27 @@ class Categorizer
         return nil if transaction.description.nil?
         @count = 0 if @count.nil?
 
-        @@map.keys.each do |transactionType|
-            @@map[transactionType].each do |string|
-                if transaction.description.upcase.include?(string.upcase) then
-                    @count += 1
-                    return transactionType
-                end
-            end
+        type = matchingType(@@map, transaction.description)
+        unless type.nil? then
+            @count += 1
+            return type
         end
 
         accountType = @appsettings.accountTypeByName[transaction.account]
 
-        @@mapWithType[accountType].keys.each do |transactionType|
-            @@mapWithType[accountType][transactionType].each do |string|
-                if transaction.description.upcase.include?(string.upcase) then
-                    @count += 1
+        type = matchingType(@@mapWithType[accountType], transaction.description)
+        unless type.nil? then
+            @count += 1
+            return type
+        end
+
+        return nil
+    end
+
+    def matchingType(map, text)
+        map.keys.each do |transactionType|
+            map[transactionType].each do |string|
+                if text.upcase.include?(string.upcase) then
                     return transactionType
                 end
             end
