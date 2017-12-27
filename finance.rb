@@ -8,47 +8,48 @@ require_relative 'import/simpliicsv'
 require_relative 'import/tdvisa'
 require_relative 'applogger'
 
-def findParserClass(fileName)
-    $parserClasses.each do |parserClass|
-        return parserClass.new($settings, fileName) if parserClass.validFile(fileName)
+def selectParser(fileName)
+    return $parsers.find do |parser|
+        parser.validFile(fileName)
     end
-
-    return nil
 end
 
 def importFiles(files)
     files.each do |file|
-        parser = findParserClass(file)
+        parser = selectParser(file)
 
         if parser.nil? then
             $logger.warn "no parser found for #{file}"
             next
         end
 
-        transactions = parser.read()
+        statement = parser.readFile(file)
 
-        if $settings.hasStatement(parser) then
-            $logger.info "#{parser.Id} already imported"
+        if $settings.hasStatement(statement) then
+            $logger.info "#{statement.id} already imported"
             next
         end
 
-        $categorizer.updateTransactionsType(transactions)
-        $settings.addStatement(parser)
+        next
 
-        rows = transactions.map { |transaction| transaction.toSheetRow }
+        $categorizer.updateTransactionsType(statement.transactions)
+        $settings.addStatement(statement)
 
-        $logger.info "uploading #{rows.length} rows for #{parser.Id} ..."
+        rows = statement.transactions.map { |transaction| transaction.toSheetRow }
+
+        $logger.info "uploading #{rows.length} rows for #{statement.id} ..."
         $api.addRows( "Transactions!A:A", rows )
     end
 end
 
 spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
 
-$parserClasses = [BMOMasterCardPDFParser, SimpliiCheckingCSVParser]
-
 $api = SheetsAPI.new(spreadsheetId)
 $settings = AppSettings.new($api)
 $categorizer = Categorizer.new()
+
+$parsers = [BMOMasterCardPDFParser.new($settings), 
+                SimpliiCheckingCSVParser.new($settings)]
 
 $categorizer.validate($settings)
 

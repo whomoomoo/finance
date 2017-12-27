@@ -7,45 +7,38 @@ require_relative 'parser'
 class BMOMasterCardPDFParser < Parser
     # attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
-    def self.validFile(fileName)
+    def validFile(fileName)
         return /eStatement_\d+-\d+-\d+\.pdf/.match(File.basename(fileName))
     end
 
-    def read
-        $logger.debug "BMOMasterCardPDFParser parsing #{@fileName}"
-        @name = File.basename(@fileName)
-        reader = PDF::Reader.new(@fileName)
-        transactions = []
+    def readFile(fileName)
+        $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
+        @name = File.basename(fileName)
+        statement = CrediCardStatement.new(fileName, accountId)
+        reader = PDF::Reader.new(fileName)
+
+        @cardNumberValidated = false
         
         reader.pages.each do |page|
-            transactions.concat( readPage(page.text) )
+            readPage(page.text, statement)
         end
 
-        raise "missing balance" if @balance.nil?  
-        raise "missing base date" if @baseDate.nil?  
-        raise "missing prev balance" if @prevBalance.nil?  
-        raise "missing prev date" if @prevDate.nil?  
+        raise "missing balance" if statement.balance.nil?  
+        raise "missing base date" if statement.date.nil?  
+        raise "missing prev balance" if statement.prevBalance.nil?  
+        raise "missing prev date" if statement.prevDate.nil?  
 
-        sum = 0
-        transactions.each do |transaction|
-            sum += transaction.amount
-        end
-
-        sum += (@balance * -1) + @prevBalance
+        sum = statement.total - statement.balance + statement.prevBalance
 
         $logger.warn "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
                 
-        $logger.info "parsed #{@name}: #{transactions.length} transactions, DATA OK!"        
+        $logger.info "parsed #{@name}: #{statement.transactions.length} transactions, DATA OK!"        
 
-        return transactions
+        return statement
     end
 
     def accountId
         return "BMO-MC"
-    end
-
-    def Id
-        return accountId + "." + @baseDate.to_s
     end
 
     private
@@ -59,7 +52,7 @@ class BMOMasterCardPDFParser < Parser
         return text.strip.sub(",", "").to_f * multiplier
     end
 
-    def monthDayToDate(text)
+    def monthDayToDate(text, statement)
         # check for transactions on this bill that happened in the previous month wich might 
         # have been in the previous year
         date = nil
@@ -69,42 +62,34 @@ class BMOMasterCardPDFParser < Parser
             return nil
         end
 
-        year = @baseDate.year
-        if date.month != @baseDate.month && @baseDate.month <= 2 && date.month >= 11
+        year = statement.date.year
+        if date.month != statement.date.month && statement.date.month <= 2 && date.month >= 11
             year -= 1
-        elsif date.month != @baseDate.month && (date.month + 1) != @baseDate.month
-            raise "#{@name} unknown transaction date year: #{date} statement date: #{@baseDate}"
+        elsif date.month != statement.date.month && (date.month + 1) != statement.date.month
+            raise "#{@name} unknown transaction date year: #{date} statement date: #{statement.date}"
         end
         return  Date.new(year, date.month, date.day)
     end
 
-    def readPage(pageText)
+    def readPage(pageText, statement)
         inTransactionTable = false
-        transactions = []
 
         pageText.lines.each do |line|
-            if @baseDate.nil? && /Statement Date\s+(.*)/.match(line) then
-                @baseDate = Date.parse(Regexp.last_match(1))
-                $logger.debug "Using #{@baseDate} as base date"
+            if statement.date.nil? && /Statement Date\s+(.*)/.match(line) then
+                statement.date = Date.parse(Regexp.last_match(1))
+                $logger.debug "Using #{statement.date} as base date"
             end
 
-            if @balance.nil? && /New Balance.*[$](-?\d+,?\d+\.\d+)/.match(line) then
-                @balance = toNumber(Regexp.last_match(1))
-                $logger.debug "Using #{@balance} as Balance"
+            if statement.balance.nil? && /New Balance.*[$](-?\d+,?\d+\.\d+)/.match(line) then
+                statement.balance = toNumber(Regexp.last_match(1))
+                $logger.debug "Using #{statement.balance} as Balance"
             end
 
-            if @prevBalance.nil? && /Previous Balance, (.*)  .*[$](-?\d+,?\d+\.\d+)/.match(line) then
-                @prevBalance = toNumber(Regexp.last_match(2))
-                $logger.debug "Using #{@prevBalance} as Previous Balance"
-                @prevDate = Date.parse(Regexp.last_match(1))
-                $logger.debug "Using #{@prevDate} as Previous Date"
-            end
-
-            if @prevBalance.nil? && /Previous Balance, (.*)  .*[$](-?\d+,?\d+\.\d+)/.match(line) then
-                @prevBalance = toNumber(Regexp.last_match(2))
-                $logger.debug "Using #{@prevBalance} as Previous Balance"
-                @prevDate = Date.parse(Regexp.last_match(1))
-                $logger.debug "Using #{@prevDate} as Previous Date"
+            if statement.prevBalance.nil? && /Previous Balance, (.*)  .*[$](-?\d+,?\d+\.\d+)/.match(line) then
+                statement.prevBalance = toNumber(Regexp.last_match(2))
+                $logger.debug "Using #{statement.prevBalance} as Previous Balance"
+                statement.prevDate = Date.parse(Regexp.last_match(1))
+                $logger.debug "Using #{statement.prevDate} as Previous Date"
             end
 
             if @cardNumberValidated.nil? && /Card Number\s+(\d+ \d+ \d+ \d+)/.match(line) then
@@ -131,22 +116,16 @@ class BMOMasterCardPDFParser < Parser
                     # compress multiple whitespaces into one
                     data[2].gsub!(/\s+/, " ")
 
-                    date = monthDayToDate(data[0])
+                    date = monthDayToDate(data[0], statement)
 
-                    #puts line if date.nil?
                     next if date.nil?
 
                     raise "amount should never be zero!\n#{data}" if amount.abs < 0.001
 
-                    transactions.push(Transaction.new(self.accountId, date, amount, data[2]))
-                else
-                    
-                    #puts line
+                    statement.addTransaction(date, amount, data[2])
                 end
             end
         end
-
-        return transactions
     end
 
     def splitColumns(line, columns)
@@ -162,5 +141,13 @@ class BMOMasterCardPDFParser < Parser
         end
         data.push(line[last..-1])
         return data
+    end
+
+    class CrediCardStatement < Statement
+        attr_accessor :balance, :prevBalance, :prevDate
+
+        def id
+            return accountId + "." + @date.to_s
+        end
     end
 end

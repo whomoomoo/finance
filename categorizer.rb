@@ -39,7 +39,6 @@ class Categorizer
                         "PHARMA PLUS DRUGMARTS", "LONGO'S", "AMBROSIA THORNHILL", "SHAKESPEARE PIES"],
         "Mortgage" => ["MORTGAGE BNS MTGE DEPARTMENT"],
         "Moving" => ["U-HAUL", "UHAUL"],
-        "Misc" => ["B.J.HAIRSTYLING"],
         "Phone" => ["KOODO"],
         "Resterant" => ["DAIRY QUEEN", "271 WEST KITCHENER", "BALZAC'S COFFEE LTD", 
                         "PURE JUICE BAR", "HARVEYS", "SABABA FINE FOODS", "KINKAKU IZAKAYA", 

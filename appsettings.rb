@@ -37,13 +37,13 @@ class AppSettings
     end
 
     def hasStatement(documentParser)
-        return !documentParser.Id.nil? && @importedStatements.find_index(documentParser.Id)
+        return !documentParser.id.nil? && @importedStatements.find_index(documentParser.id)
     end
 
     def addStatement(documentParser)
         unless hasStatement(documentParser)
-            @importedStatements.push(documentParser.Id) 
-            @sheetsAPI.addRows("Settings!E2:E", [ [ documentParser.Id ] ])
+            @importedStatements.push(documentParser.id) 
+            @sheetsAPI.addRows("Settings!E2:E", [ [ documentParser.id ] ])
         end
     end
 end
