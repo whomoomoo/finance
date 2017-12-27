@@ -7,10 +7,14 @@ require_relative 'parser'
 class BMOMasterCardPDFParser < Parser
     # attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
-    def read(fileName)
-        $logger.debug "BMOMasterCardPDFParser parsing #{fileName}"
-        @name = File.basename(fileName)
-        reader = PDF::Reader.new(fileName)
+    def self.validFile(fileName)
+        return /eStatement_\d+-\d+-\d+\.pdf/.match(File.basename(fileName))
+    end
+
+    def read
+        $logger.debug "BMOMasterCardPDFParser parsing #{@fileName}"
+        @name = File.basename(@fileName)
+        reader = PDF::Reader.new(@fileName)
         transactions = []
         
         reader.pages.each do |page|
@@ -26,12 +30,10 @@ class BMOMasterCardPDFParser < Parser
         transactions.each do |transaction|
             sum += transaction.amount
         end
-        puts sum
-        puts @balance - @prevBalance
 
         sum += (@balance * -1) + @prevBalance
 
-        puts "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
+        $logger.warn "error parsing #{@name} summing transation check failed: #{sum}" unless sum.abs < 0.001  
                 
         $logger.info "parsed #{@name}: #{transactions.length} transactions, DATA OK!"        
 
@@ -43,7 +45,7 @@ class BMOMasterCardPDFParser < Parser
     end
 
     def Id
-        return accountId + @baseDate.to_s
+        return accountId + "." + @baseDate.to_s
     end
 
     private

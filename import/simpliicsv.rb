@@ -5,16 +5,14 @@ require 'fileutils'
 require_relative 'parser'
 
 class SimpliiCSVParser < Parser
-    def initialize(appsettings)
-        @appsettings = appsettings
-
-        raise "unknown accout for parser #{accountId}" if @appsettings.accountNumByID[accountId].nil?
+    def self.validFile(fileName)
+        return /SIMPLII-.*\.csv/.match(File.basename(fileName))
     end
 
-    def read(fileName)
-        $logger.debug "SimpliiCSVParser parsing #{fileName}"
-        @name = File.basename(fileName)
-        rows = CSV.read(fileName)
+    def read
+        $logger.debug "SimpliiCSVParser parsing #{@fileName}"
+        @name = File.basename(@fileName)
+        rows = CSV.read(@fileName)
 
         raise "unknown CSV file" if rows[0][0] != "SIMPLII"
 

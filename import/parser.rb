@@ -3,8 +3,9 @@ require_relative '../applogger'
 require_relative '../appsettings'
 
 class Parser
-    def initialize(appsettings)
+    def initialize(appsettings, fileName)
         @appsettings = appsettings
+        @fileName = fileName
 
         raise "unknown accout for parser #{accountId}" if @appsettings.accountNumByID[accountId].nil?
     end
@@ -17,5 +18,13 @@ class Parser
 
     def accountId
         raise "must override accountId in subclass"
+    end
+
+    def self.validFile(fileName)
+        return false
+    end
+
+    def Id
+        return nil
     end
 end

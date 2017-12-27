@@ -8,13 +8,14 @@ class TDVisaPDFParser < Parser
     # attr_reader :baseDate, :balance, :prevBalance, :prevDate
 
     def read(fileName)
-        $logger.debug "TDVisaPDFParser parsing #{fileName}"
+        $logger.info "TDVisaPDFParser parsing #{fileName}"
         @name = File.basename(fileName)
         reader = PDF::Reader.new(fileName)
         transactions = []
         
         reader.pages.each do |page|
-            transactions.concat( readPage(page.text) )
+            puts page.text
+            #transactions.concat( readPage(page.text) )
         end
 
         raise "missing balance" if @balance.nil?  

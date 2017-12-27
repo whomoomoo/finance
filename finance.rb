@@ -5,52 +5,72 @@ require_relative 'appsettings'
 require_relative 'categorizer'
 require_relative 'import/bmomc'
 require_relative 'import/simpliicsv'
+require_relative 'import/tdvisa'
 require_relative 'applogger'
 
-spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
+def findParserClass(fileName)
+    $parserClasses.each do |parserClass|
+        return parserClass.new($settings, fileName) if parserClass.validFile(fileName)
+    end
 
-def importFiles(files, categorizer, api)
+    return nil
+end
+
+def importFiles(files)
     files.each do |file|
-        parser = BMOMasterCardPDFParser.new(settings)
-        transactions = parser.read(file)
+        parser = findParserClass(file)
 
-        if settings.hasStatement(parser) then
-            $logger.info "#{documentParser.Id} already imported"
+        if parser.nil? then
+            $logger.warn "no parser found for #{file}"
             next
         end
 
-        categorizer.updateTransactionsType(transactions)
-        settings.addStatement(parser)
+        transactions = parser.read()
+
+        if $settings.hasStatement(parser) then
+            $logger.info "#{parser.Id} already imported"
+            next
+        end
+
+        $categorizer.updateTransactionsType(transactions)
+        $settings.addStatement(parser)
 
         rows = transactions.map { |transaction| transaction.toSheetRow }
 
-        $logger.info "uploading #{rows.length} rows for #{documentParser.Id} ..."
-        api.addRows( "Transactions", rows )
+        $logger.info "uploading #{rows.length} rows for #{parser.Id} ..."
+        $api.addRows( "Transactions!A:A", rows )
     end
 end
 
-api = SheetsAPI.new(spreadsheetId)
-settings = AppSettings.new(api)
-categorizer = Categorizer.new()
+spreadsheetId = "1LkmAnd7vkW1AhwbgEOd1W-xmPiYJluaLzI1MDURFeFc";
 
-categorizer.validate(settings)
-count = 0
-total = 0
-unknownDesc = []
+$parserClasses = [BMOMasterCardPDFParser, SimpliiCheckingCSVParser]
 
-ARGV.each do |file|
-    parser = BMOMasterCardPDFParser.new(settings)
-    transactions = parser.read(file)
+$api = SheetsAPI.new(spreadsheetId)
+$settings = AppSettings.new($api)
+$categorizer = Categorizer.new()
 
-    transactions.each do |transaction|
-        if categorizer.guessTransactionType(transaction).nil?
-            unknownDesc.push(transaction.description + " | " + transaction.amount.to_s+" | " + transaction.date.to_s) 
-            total += transaction.amount
-        end 
-    end
-    count += transactions.length
-end
-unknownDesc.sort!
-puts "categorized #{categorizer.count} / #{count}"
-puts "total: #{total}"
-puts unknownDesc
+$categorizer.validate($settings)
+
+importFiles(ARGV)
+
+# count = 0
+# total = 0
+# unknownDesc = []
+
+# ARGV.each do |file|
+#     parser = TDVisaPDFParser.new(settings)
+#     transactions = parser.read(file)
+
+#     transactions.each do |transaction|
+#         if categorizer.guessTransactionType(transaction).nil?
+#             unknownDesc.push(transaction.description + " | " + transaction.amount.to_s+" | " + transaction.date.to_s) 
+#             total += transaction.amount
+#         end 
+#     end
+#     count += transactions.length
+# end
+# unknownDesc.sort!
+# puts "categorized #{categorizer.count} / #{count}"
+# puts "total: #{total}"
+# puts unknownDesc

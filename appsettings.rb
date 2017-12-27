@@ -30,17 +30,20 @@ class AppSettings
             @accountTypeByName[settingsData[2][index].strip] = type
             @accountNumByID[settingsData[2][index]] = key.gsub(/\s+/, '')
         end
+
+        @importedStatements = [] if @importedStatements.nil?
+
         $logger.info "loaded settings"
     end
 
     def hasStatement(documentParser)
-        return @importedStatements.find_index(documentParser.Id)
+        return !documentParser.Id.nil? && @importedStatements.find_index(documentParser.Id)
     end
 
     def addStatement(documentParser)
-        unless hasStatement(documentParser.Id)
+        unless hasStatement(documentParser)
             @importedStatements.push(documentParser.Id) 
-            @sheetsAPI.addRows("Settings!E", [ [ documentParser.Id ] ])
+            @sheetsAPI.addRows("Settings!E2:E", [ [ documentParser.Id ] ])
         end
     end
 end

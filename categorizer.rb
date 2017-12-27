@@ -96,14 +96,14 @@ class Categorizer
         end
     end
 
-    def updateTransactionType(transation)
-        return unless transation.type.nil? || transation.type == "Misc"
+    def updateTransactionType(transaction)
+        return unless transaction.type.nil? || transaction.type == "Misc"
 
-        type = guessTransactionType(transation)
+        type = guessTransactionType(transaction)
         unless type.nil? then
-            transation.type = type
+            transaction.type = type
         else
-            if transation.amount > 0
+            if transaction.amount > 0
                 transaction.type = "Misc"
             else
                 transaction.type = "Misc-In"
@@ -111,12 +111,12 @@ class Categorizer
         end
     end
 
-    def updateTransactionsType(transations)
+    def updateTransactionsType(transactions)
         @count = 0
-        transations.each do |transaction|
+        transactions.each do |transaction|
             updateTransactionType(transaction)
         end
-        $logger.info "categorized #{@categoried} out of #{transations.length}"
+        $logger.info "categorized #{@categoried} out of #{transactions.length}"
     end
 
     def guessTransactionType(transaction)
